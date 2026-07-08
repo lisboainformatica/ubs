@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: psf-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: agendamento_psf
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d agendamento_psf"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: psf-nextjs
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/agendamento_psf?schema=public
+      JWT_SECRET: a7c4f42f36d4f40bb8e9b6267cbdfb09b53f65e23652a92ff15ad97e59b7dfb36a8d6263e52
+      JWT_REFRESH_SECRET: 9e52d6a5991823ebdfcf6d3e8e19bb5a1b3fc14421bfa9822a105c93bd8c8a14b5398d5c
+      NODE_ENV: production
+    depends_on:
+      db:
+        condition: service_healthy
+
+  nginx:
+    image: nginx:alpine
+    container_name: psf-nginx
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - web
+
+volumes:
+  postgres_data:
